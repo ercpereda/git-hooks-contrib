@@ -1,0 +1,54 @@
+#!/bin/sh
+# Given our current repository setup this file should be located in the hooks
+# directory of the appropiate module.
+# The `.bkp` should be removed when copying the file to the correct location.
+# For example to use it in api.accounting, given that
+# we are in the directory of the alaya,
+# the file path should be /.git/modules/api.accounting/hooks/prepare-commit-msg
+
+COMMIT_MSG_FILE=$1
+COMMIT_SOURCE=$2
+SHA1=$3
+# We'll allow any branches for now, and focus on detecting the ticket number
+
+# Include any branches for which you wish to disable this script
+# if [ -z "$BRANCHES_TO_SKIP" ]; then
+#   BRANCHES_TO_SKIP="master develop"
+# fi;
+
+# Get the current branch name and check if it is excluded
+BRANCH_NAME=$(git symbolic-ref --short HEAD)
+# RC_BRANCH_EXCLUDED=$(echo $BRANCH_NAME | grep -c '^rc-.*')          # rc-*, like rc-211 branches, should not get the ticket number automatically
+
+# We won't try to detect and add the ticket id if any of the following conditions holds:
+# - The branch is restricted, for example master, develop
+# - The branch is a `rc-*`, for example rc-211
+# - The user explicitly ask to skip the hook by setting the enviroment variable `SKIP_TICKET_PREFIX`
+
+# for B in $BRANCHES_TO_SKIP ; do
+#   if [ $B = $BRANCH_NAME ]; then exit 0; fi;
+# done;
+
+# if [ "$RC_BRANCH_EXCLUDED" -eq 1 ] || [ ! -z "$SKIP_TICKET_PREFIX" ]; then exit 0; fi;
+if [ ! -z "$SKIP_TICKET_PREFIX" ]; then exit 0; fi;
+
+
+# The ticket number is converted to uppercase.
+# We'll whitelist the type of projects, selecting only of the following:
+# PE    -> Production Engineering
+# PD    -> AlayaCare
+# BOOT  -> Bootcamp
+# LAB   -> AlayaLabs Research
+# ACW   -> Android Care Worker App
+# DO    -> DevOps
+# EI    -> External Integrations
+# FAM   -> Family Portal
+# PT    -> Project Team
+# RM    -> Release Management
+
+TICKET_NUMBER=$(echo $BRANCH_NAME | sed -e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/' | grep -oE '(PE|PD|BOOT|LAB|ACW|DO|EI|FAM|PT|RM)-[0-9]+')
+
+# If it isn't excluded, preprend the trimmed branch identifier to the given message
+if [ -n "$BRANCH_NAME" ] && [ -n "$TICKET_NUMBER" ]; then
+  sed -i.bak -e "1s/^/$TICKET_NUMBER: /" $COMMIT_MSG_FILE
+fi
